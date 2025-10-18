@@ -1,0 +1,77 @@
+from icrawler.builtin import BingImageCrawler
+import os
+
+wound_classes = {
+    "abrasion": 200,
+    "abrasion closeup": 200,
+    "serious abrasion": 150,
+    "burn": 100,
+    "first-degree burn photo": 200,
+    "second-degree burn on black person": 200,
+    "third-degree burn on black person": 200,
+    "bruise closeup": 300,
+    "serious bruise photo": 300,
+    "laceration": 300,
+    "serious laceration closeup": 300,
+    "infection": 300,
+    "infected wound": 200,
+    "infection wound photo": 100,
+    "mild skin infection": 100,
+    "skin rash": 300,
+    "eczema": 100,
+    "Contact dermatitis": 100,
+    "severe skin rash"  : 200,
+}
+
+from icrawler.builtin import BingImageCrawler
+import os, time
+
+root_dir = "dataset_processed"
+splits = {"train": 0.8, "val": 0.2}
+
+wound_queries = {
+    "abrasion": ["abrasion", "abrasion closeup", "serious abrasion"],
+    "burn": ["burn", "first-degree burn photo", "second-degree burn on black person", "third-degree burn on black person"],
+    "bruise": ["bruise closeup", "serious bruise photo"],
+    "laceration": ["laceration", "serious laceration closeup"],
+    "infection": ["infection", "infected wound", "infection wound photo", "mild skin infection"],
+    "rash": ["skin rash", "eczema", "contact dermatitis", "severe skin rash"]
+}
+
+
+target_counts = {
+    "abrasion": 550,
+    "burn": 400,
+    "bruise": 450,
+    "laceration": 450,
+    "infection": 700,
+    "rash": 500
+}
+
+for split, frac in splits.items():
+    for cls, queries in wound_queries.items():
+        os.makedirs(os.path.join(root_dir, split, cls), exist_ok=True)
+
+for split, frac in splits.items():
+    print(f"\n🩹 Downloading {split.upper()} set...")
+    for cls, queries in wound_queries.items():
+        total = int(target_counts[cls] * frac)
+        per_query = max(1, total // len(queries))
+        save_dir = os.path.join(root_dir, split, cls)
+
+        print(f"\n Class: {cls} ({total} target, ~{per_query} per query)")
+        for q in queries:
+            for attempt in range(3):
+                try:
+                    print(f"   ↳ Searching: {q} (try {attempt+1}/3)")
+                    crawler = BingImageCrawler(storage={"root_dir": save_dir}, downloader_threads=6)
+                    crawler.crawl(
+                        keyword=f"{q} on human skin",
+                        max_num=per_query * 3,   # ask for more
+                        filters={},               # no license restriction
+                        offset=0
+                    )
+                    break
+                except Exception as e:
+                    print(f"Retry {attempt+1}/3 for '{q}' failed: {e}")
+                    time.sleep(2)
